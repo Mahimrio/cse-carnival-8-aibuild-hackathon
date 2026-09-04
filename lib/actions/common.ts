@@ -1,4 +1,3 @@
-import "server-only";
 
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { isManager } from "@/lib/auth/roles";

@@ -1,7 +1,7 @@
 import { Type } from "@google/genai";
 import { bookRoom, cancelRoomBooking } from "@/lib/actions/rooms";
 import { registerForEvent, cancelEventRegistration } from "@/lib/actions/events";
-import { getNow, getToday, getTomorrow, getWeekRange, getDateForDay } from "@/lib/now";
+import { getNow, getToday, getTomorrow, getWeekRange } from "@/lib/now";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile, Room, Event, Schedule, Assignment, Announcement } from "@/lib/types";
 
@@ -194,7 +194,7 @@ function findEvent(events: Event[], query: string): Event | undefined {
   );
 }
 
-export async function executeAgentTool(name: string, args: Record<string, any>, _profile: Profile): Promise<unknown> {
+export async function executeAgentTool(name: string, args: Record<string, unknown>, callerProfile?: Profile): Promise<unknown> {
   const admin = createAdminClient();
 
   switch (name) {
@@ -405,7 +405,7 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
 
       if (!room) return { ok: false, error: `Room '${roomNum}' not found.` };
 
-      const res = await bookRoom(room.id, { date, start_time: startTime, end_time: endTime, purpose });
+      const res = await bookRoom(room.id, { date, start_time: startTime, end_time: endTime, purpose }, callerProfile);
       if (!res.ok) return { ok: false, error: res.error };
       return { ok: true, room_number: room.room_number, date, start_time: startTime, end_time: endTime, purpose };
     }
@@ -420,7 +420,7 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
 
       if (!room) return { ok: false, error: `Room '${roomNum}' not found.` };
 
-      const res = await cancelRoomBooking(room.id, bookingId);
+      const res = await cancelRoomBooking(room.id, bookingId, callerProfile);
       if (!res.ok) return { ok: false, error: res.error };
       return { ok: true, message: `Cancelled booking ${bookingId} for room ${room.room_number}` };
     }
@@ -433,7 +433,7 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
 
       if (!event) return { ok: false, error: `Event '${target}' not found.` };
 
-      const res = await registerForEvent(event.id);
+      const res = await registerForEvent(event.id, callerProfile);
       if (!res.ok) return { ok: false, error: res.error };
       return { ok: true, event_id: event.id, event_name: event.name, date: event.date };
     }
@@ -446,7 +446,7 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
 
       if (!event) return { ok: false, error: `Event '${target}' not found.` };
 
-      const res = await cancelEventRegistration(event.id);
+      const res = await cancelEventRegistration(event.id, callerProfile);
       if (!res.ok) return { ok: false, error: res.error };
       return { ok: true, event_id: event.id, event_name: event.name };
     }

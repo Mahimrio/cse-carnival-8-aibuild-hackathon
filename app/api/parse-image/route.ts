@@ -103,8 +103,8 @@ Allowed values: room type=classroom|lab|seminar; room status=available|unavailab
 Dates must be YYYY-MM-DD and times HH:MM. Use operation add unless the image clearly changes or removes an existing record. Use an empty target_id for add. For edit/delete use the matching target_id from this current-record reference: ${JSON.stringify(references)}. Put only changed fields in payload_json for edit; use "{}" for delete. Do not infer details that are not legible. Return an empty proposals array if there is no actionable campus record.`;
 
     const ai = new GoogleGenAI({ apiKey });
-    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-    const models = [preferredModel];
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const models = [preferredModel, "gemini-3.6-flash"];
     let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
     let modelError: unknown;
     for (const model of models) {
@@ -122,7 +122,7 @@ Dates must be YYYY-MM-DD and times HH:MM. Use operation add unless the image cle
       }
     }
     if (!response) {
-      for (const model of [...new Set([preferredModel, "gemini-3.5-flash", "gemini-3.1-flash-lite"])]) {
+      for (const model of [...new Set([preferredModel, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"])]) {
         try {
           response = await ai.models.generateContent({
             model,

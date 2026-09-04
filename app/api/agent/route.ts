@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type Tool } from "@google/genai";
 import { NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getSystemPrompt } from "@/lib/agent/systemPrompt";
@@ -26,13 +26,17 @@ export async function POST(request: Request) {
     const systemPrompt = getSystemPrompt(profile);
     const ai = new GoogleGenAI({ apiKey });
 
-    const preferredModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-    const modelsToTry = [...new Set([preferredModel, "gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"])];
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const modelsToTry = [...new Set([preferredModel, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"])];
 
     // Format chat history into Gemini contents format
     const contents: Array<{
       role: "user" | "model";
-      parts: Array<{ text?: string; functionCall?: any; functionResponse?: any }>;
+      parts: Array<{
+        text?: string;
+        functionCall?: { name: string; args?: Record<string, unknown> };
+        functionResponse?: { name: string; response: Record<string, unknown> };
+      }>;
     }> = [];
 
     for (const msg of messages) {
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
             contents,
             config: {
               systemInstruction: systemPrompt,
-              tools: agentToolsDeclaration as any,
+              tools: agentToolsDeclaration as unknown as Tool[],
               temperature: 0.2,
             },
           });
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
         } catch (err) {
           lastError = err;
           const msg = String(err);
-          if (!msg.includes('"code":404') && !msg.includes('"code":503')) {
+          if (!msg.includes('"code":404') && !msg.includes('"code":503') && !msg.includes('"code":429') && !msg.includes("RESOURCE_EXHAUSTED")) {
             throw err;
           }
         }
@@ -93,12 +97,12 @@ export async function POST(request: Request) {
           });
 
           // Execute tool
-          const result = await executeAgentTool(toolName, (call.args as Record<string, any>) || {}, profile);
+          const result = await executeAgentTool(toolName, (call.args as Record<string, unknown>) || {}, profile);
 
           // Add the tool execution result to history
           contents.push({
             role: "user",
-            parts: [{ functionResponse: { name: toolName, response: { result } } }],
+            parts: [{ functionResponse: { name: toolName, response: { result: result as Record<string, unknown> } } }],
           });
         }
       } else {
