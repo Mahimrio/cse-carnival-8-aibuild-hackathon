@@ -93,7 +93,7 @@ export interface Profile {
 
 export interface PendingChange {
   id: string;
-  entity_type: EntityType;
+  entity_type: Exclude<EntityType, "user">;
   operation: "add" | "edit" | "delete";
   target_id: string | null;
   payload: Record<string, unknown>;
