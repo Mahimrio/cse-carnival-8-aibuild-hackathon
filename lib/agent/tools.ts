@@ -1,11 +1,11 @@
-import { Type } from "@google/genai";
+import { Type, type Tool } from "@google/genai";
 import { bookRoom, cancelRoomBooking } from "@/lib/actions/rooms";
 import { registerForEvent, cancelEventRegistration } from "@/lib/actions/events";
 import { getNow, getToday, getTomorrow, getWeekRange } from "@/lib/now";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile, Room, Event, Schedule, Assignment, Announcement } from "@/lib/types";
 
-export const agentToolsDeclaration = [
+export const agentToolsDeclaration: Tool[] = [
   {
     functionDeclarations: [
       {
