@@ -65,11 +65,11 @@ export function DashboardFrame({ profile, today, dayName, currentTime, data }: {
       </div>
       <div className="mb-6 overflow-x-auto pb-1"><Tabs tabs={tabs} activeTab={activeSystem} onChange={(id) => setActiveSystem(id as SystemId)} className="min-w-max sm:min-w-full" /></div>
       <section aria-live="polite">
-        {activeSystem === "schedule" && <ScheduleView schedules={data.schedules} todayName={dayName} />}
-        {activeSystem === "rooms" && <RoomsView rooms={data.rooms} />}
-        {activeSystem === "events" && <EventsView events={data.events} />}
-        {activeSystem === "announcements" && <AnnouncementsView announcements={data.announcements} />}
-        {activeSystem === "assignments" && <AssignmentsView assignments={data.assignments} today={today} />}
+        {activeSystem === "schedule" && <ScheduleView schedules={data.schedules} todayName={dayName} profile={profile} />}
+        {activeSystem === "rooms" && <RoomsView rooms={data.rooms} profile={profile} today={today} />}
+        {activeSystem === "events" && <EventsView events={data.events} profile={profile} />}
+        {activeSystem === "announcements" && <AnnouncementsView announcements={data.announcements} profile={profile} today={today} />}
+        {activeSystem === "assignments" && <AssignmentsView assignments={data.assignments} today={today} profile={profile} />}
       </section>
     </div>
   );
