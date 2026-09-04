@@ -35,7 +35,7 @@ export function Dialog({ open, onClose, title, children, footer, size = "md" }: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <button className="absolute inset-0 cursor-default bg-black/50 backdrop-blur-sm" onClick={onClose} aria-label="Close dialog" />
-      <div className={cn("relative flex max-h-[90vh] w-full flex-col rounded-card bg-card shadow-2xl", sizes[size])}>
+      <div className={cn("relative flex max-h-[90vh] w-full flex-col rounded-card border bg-card shadow-2xl", sizes[size])}>
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 id={titleId} className="font-heading text-lg font-semibold">{title}</h2>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close dialog">

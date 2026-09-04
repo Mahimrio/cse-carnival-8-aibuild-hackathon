@@ -20,11 +20,15 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="grid size-9 place-items-center rounded-card text-muted-foreground hover:bg-muted hover:text-foreground"
+      className="relative grid size-9 place-items-center rounded-card text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all duration-200"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
     >
-      {isDark ? <Sun aria-hidden="true" size={18} /> : <Moon aria-hidden="true" size={18} />}
+      {isDark ? (
+        <Sun aria-hidden="true" size={18} className="text-amber-400 rotate-0 transition-transform duration-300 hover:rotate-45" />
+      ) : (
+        <Moon aria-hidden="true" size={18} className="text-teal-700 rotate-0 transition-transform duration-300 hover:-rotate-12" />
+      )}
     </button>
   );
 }
