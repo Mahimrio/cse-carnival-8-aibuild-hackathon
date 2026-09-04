@@ -1,13 +1,16 @@
 "use client";
 
-import { Bell, BookOpen, CalendarCheck, CalendarDays, Clock, Layers, Plus } from "lucide-react";
+import { Bell, BookOpen, CalendarCheck, CalendarDays, Clock, Layers } from "lucide-react";
 import { useState } from "react";
-import { ManagerOnly } from "@/components/auth/manager-only";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { SectionHeader } from "@/components/ui/section-header";
+import { LiveDashboardRefresh } from "@/components/dashboard/live-dashboard-refresh";
+import { AnnouncementsView } from "@/components/systems/announcements-view";
+import { AssignmentsView } from "@/components/systems/assignments-view";
+import { EventsView } from "@/components/systems/events-view";
+import { RoomsView } from "@/components/systems/rooms-view";
+import { ScheduleView } from "@/components/systems/schedule-view";
 import { Tabs } from "@/components/ui/tabs";
+import type { DashboardData } from "@/lib/data/dashboard";
 import type { Profile } from "@/lib/types";
 
 const systems = {
@@ -20,25 +23,53 @@ const systems = {
 
 type SystemId = keyof typeof systems;
 
-export function DashboardFrame({ profile, today, dayName }: { profile: Profile; today: string; dayName: string }) {
+function isDueThisWeek(deadline: string, today: string) {
+  const due = new Date(`${deadline}T12:00:00Z`);
+  const start = new Date(`${today}T12:00:00Z`);
+  const daysUntil = Math.floor((due.getTime() - start.getTime()) / 86_400_000);
+  return daysUntil >= 0 && daysUntil <= 7;
+}
+
+function getNextClass(data: DashboardData, dayName: string, currentTime: string) {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"] as const;
+  const todayIndex = days.findIndex((day) => day === dayName);
+  if (todayIndex >= 0) {
+    const laterToday = data.schedules.filter((item) => item.day === dayName && item.start_time >= currentTime).sort((a, b) => a.start_time.localeCompare(b.start_time));
+    if (laterToday[0]) return { ...laterToday[0], relativeDay: "Today" };
+  }
+  for (let offset = 1; offset <= days.length; offset += 1) {
+    const day = days[((Math.max(todayIndex, -1) + offset) % days.length + days.length) % days.length];
+    const next = data.schedules.filter((item) => item.day === day).sort((a, b) => a.start_time.localeCompare(b.start_time))[0];
+    if (next) return { ...next, relativeDay: day };
+  }
+  return null;
+}
+
+export function DashboardFrame({ profile, today, dayName, currentTime, data }: { profile: Profile; today: string; dayName: string; currentTime: string; data: DashboardData }) {
   const [activeSystem, setActiveSystem] = useState<SystemId>("schedule");
-  const system = systems[activeSystem];
-  const Icon = system.icon;
-  const tabs = (Object.entries(systems) as [SystemId, typeof systems[SystemId]][]).map(([id, item]) => ({ id, label: item.label, icon: <item.icon aria-hidden="true" size={15} /> }));
+  const dueThisWeek = data.assignments.filter((item) => item.status === "pending" && isDueThisWeek(item.deadline, today));
+  const highPriority = data.announcements.filter((item) => item.priority === "high" && item.expires >= today);
+  const upcomingEvents = data.events.filter((item) => item.status === "upcoming" || item.status === "full");
+  const nextClass = getNextClass(data, dayName, currentTime);
+  const tabs = (Object.entries(systems) as [SystemId, typeof systems[SystemId]][]).map(([id, item]) => ({ id, label: item.label, icon: <item.icon aria-hidden="true" size={15} />, badge: id === "announcements" ? highPriority.length : id === "assignments" ? dueThisWeek.length : undefined }));
 
   return (
     <div>
+      <LiveDashboardRefresh />
       <div className="mb-6"><h1 className="font-heading text-2xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">{today} · {dayName} · Welcome back, {profile.full_name}</p></div>
       <div className="mb-6 grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Next Class" value="—" detail="Live schedule summary" icon={Clock} />
-        <StatCard label="Due This Week" value="—" detail="Pending assignment deadlines" icon={BookOpen} tone="amber" />
-        <StatCard label="High Priority" value="—" detail="Active announcements" icon={Bell} tone="red" />
-        <StatCard label="Upcoming Events" value="—" detail="Open campus events" icon={CalendarCheck} tone="blue" />
+        <StatCard label="Next Class" value={nextClass?.course ?? "None"} detail={nextClass ? `${nextClass.relativeDay} at ${nextClass.start_time} · ${nextClass.room}` : "No upcoming classes"} icon={Clock} />
+        <StatCard label="Due This Week" value={String(dueThisWeek.length)} detail={dueThisWeek[0] ? `Earliest: ${dueThisWeek[0].deadline}` : "No pending deadlines"} icon={BookOpen} tone="amber" />
+        <StatCard label="High Priority" value={String(highPriority.length)} detail="Active announcements" icon={Bell} tone="red" />
+        <StatCard label="Upcoming Events" value={String(upcomingEvents.length)} detail={`${upcomingEvents.filter((event) => event.status === "full").length} full`} icon={CalendarCheck} tone="blue" />
       </div>
       <div className="mb-6 overflow-x-auto pb-1"><Tabs tabs={tabs} activeTab={activeSystem} onChange={(id) => setActiveSystem(id as SystemId)} className="min-w-max sm:min-w-full" /></div>
-      <section aria-labelledby={`${activeSystem}-heading`}>
-        <SectionHeader title={system.label} description={system.description} className="mb-4" action={<ManagerOnly role={profile.role}><Button size="sm" disabled title={`Add ${system.singular} controls arrive with CRUD`}><Plus aria-hidden="true" size={15} />Add {system.singular}</Button></ManagerOnly>} />
-        <EmptyState title={`${system.label} are ready to connect`} description="Live campus records will appear in this section." icon={<Icon aria-hidden="true" size={22} />} />
+      <section aria-live="polite">
+        {activeSystem === "schedule" && <ScheduleView schedules={data.schedules} todayName={dayName} />}
+        {activeSystem === "rooms" && <RoomsView rooms={data.rooms} />}
+        {activeSystem === "events" && <EventsView events={data.events} />}
+        {activeSystem === "announcements" && <AnnouncementsView announcements={data.announcements} />}
+        {activeSystem === "assignments" && <AssignmentsView assignments={data.assignments} today={today} />}
       </section>
     </div>
   );
