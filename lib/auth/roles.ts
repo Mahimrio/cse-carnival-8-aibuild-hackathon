@@ -11,8 +11,8 @@ export function isAdmin(role: UserRole) {
 export function roleName(role: UserRole) {
   return {
     super_admin: "Super Admin",
-    cr: "Course Representative",
-    sr: "Senior Representative",
+    cr: "Class Representative",
+    sr: "Society Representative",
     student: "Student",
   }[role];
 }
