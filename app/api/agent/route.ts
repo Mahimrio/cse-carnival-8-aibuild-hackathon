@@ -1,4 +1,4 @@
-import { GoogleGenAI, type Tool } from "@google/genai";
+import { GoogleGenAI, type Content, type Part, type Tool } from "@google/genai";
 import { NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { getSystemPrompt } from "@/lib/agent/systemPrompt";
@@ -30,14 +30,7 @@ export async function POST(request: Request) {
     const modelsToTry = [...new Set([preferredModel, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"])];
 
     // Format chat history into Gemini contents format
-    const contents: Array<{
-      role: "user" | "model";
-      parts: Array<{
-        text?: string;
-        functionCall?: { name: string; args?: Record<string, unknown> };
-        functionResponse?: { name: string; response: Record<string, unknown> };
-      }>;
-    }> = [];
+    const contents: Content[] = [];
 
     for (const msg of messages) {
       if (msg.role === "user") {
@@ -86,25 +79,30 @@ export async function POST(request: Request) {
       const functionCalls = response.functionCalls;
 
       if (functionCalls && functionCalls.length > 0) {
+        const modelContent = response.candidates?.[0]?.content;
+        if (!modelContent) throw new Error("Gemini returned tool calls without model content.");
+
+        // Echo the original signed parts; reconstructing them drops thoughtSignature.
+        contents.push(modelContent);
+        const functionResponses: Part[] = [];
+
         for (const call of functionCalls) {
           const toolName = call.name || "unknown_tool";
           toolsUsedSet.add(toolName);
 
-          // Add the model's call to history
-          contents.push({
-            role: "model",
-            parts: [{ functionCall: { name: toolName, args: call.args } }],
-          });
-
           // Execute tool
           const result = await executeAgentTool(toolName, (call.args as Record<string, unknown>) || {}, profile);
 
-          // Add the tool execution result to history
-          contents.push({
-            role: "user",
-            parts: [{ functionResponse: { name: toolName, response: { result: result as Record<string, unknown> } } }],
+          functionResponses.push({
+            functionResponse: {
+              id: call.id,
+              name: toolName,
+              response: { result },
+            },
           });
         }
+
+        contents.push({ role: "user", parts: functionResponses });
       } else {
         textResponse = response.text || "I'm sorry, I couldn't process your request.";
         break;
