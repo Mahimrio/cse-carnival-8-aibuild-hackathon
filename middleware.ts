@@ -4,34 +4,57 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  const { response, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
-  const authRoute = path === "/login" || path === "/signup";
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const authRoute = path === "/login" || path === "/signup";
 
-  const redirect = (destination: string) => {
+  const redirect = (destination: string, currentResponse?: NextResponse) => {
     const nextResponse = NextResponse.redirect(new URL(destination, request.url));
-    response.cookies.getAll().forEach((cookie) => nextResponse.cookies.set(cookie));
+    if (currentResponse) {
+      currentResponse.cookies.getAll().forEach((cookie) => nextResponse.cookies.set(cookie));
+    }
     return nextResponse;
   };
 
-  if (demoMode) return authRoute || path === "/pending" ? redirect("/") : response;
-  if (!user) return authRoute ? response : redirect("/login");
-
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role,status")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!profile || profile.status !== "active") {
-    return path === "/pending" ? response : redirect("/pending");
+  // 1. If DEMO MODE is active, bypass all auth barriers immediately
+  if (demoMode) {
+    if (authRoute || path === "/pending") {
+      return redirect("/");
+    }
+    return NextResponse.next();
   }
-  if (authRoute || path === "/pending") return redirect("/");
-  if (path.startsWith("/admin") && profile.role !== "super_admin") return redirect("/");
-  if (path.startsWith("/smart-entry") && !["super_admin", "cr", "sr"].includes(profile.role)) return redirect("/");
-  return response;
+
+  // 2. If Supabase environment variables are not set on deployment, allow page to render rather than crashing
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.next();
+  }
+
+  try {
+    const { response, user } = await updateSession(request);
+    if (!user) return authRoute ? response : redirect("/login", response);
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return response;
+    }
+
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role,status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile || profile.status !== "active") {
+      return path === "/pending" ? response : redirect("/pending", response);
+    }
+    if (authRoute || path === "/pending") return redirect("/", response);
+    if (path.startsWith("/admin") && profile.role !== "super_admin") return redirect("/", response);
+    if (path.startsWith("/smart-entry") && !["super_admin", "cr", "sr"].includes(profile.role)) return redirect("/", response);
+    return response;
+  } catch (error) {
+    console.error("Middleware routing error:", error);
+    return NextResponse.next();
+  }
 }
 
 export const config = {
