@@ -54,7 +54,8 @@ async function main() {
   });
 
   for (const [table, rows] of Object.entries(datasets)) {
-    const { error } = await supabase.from(table).upsert(rows, { onConflict: "id" });
+    const records = rows as unknown as Record<string, unknown>[];
+    const { error } = await supabase.from(table).upsert(records, { onConflict: "id" });
     if (error) throw new Error(`Failed to seed ${table}: ${error.message}`);
     console.log(`Seeded ${rows.length} ${table}.`);
   }
