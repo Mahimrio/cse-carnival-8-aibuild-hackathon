@@ -19,7 +19,9 @@ export function LiveDashboardRefresh() {
     const channel = supabase.channel("campus-dashboard");
     TABLES.forEach((table) => channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh));
     channel.subscribe();
-    const fallback = setInterval(() => router.refresh(), 10_000);
+    const fallback = setInterval(() => {
+      if (document.visibilityState === "visible") router.refresh();
+    }, 10_000);
 
     return () => {
       clearTimeout(refreshTimer);
