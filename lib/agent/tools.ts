@@ -1,7 +1,7 @@
 import { Type } from "@google/genai";
 import { bookRoom, cancelRoomBooking } from "@/lib/actions/rooms";
 import { registerForEvent, cancelEventRegistration } from "@/lib/actions/events";
-import { getNow, getToday } from "@/lib/now";
+import { getNow, getToday, getTomorrow, getWeekRange, getDateForDay } from "@/lib/now";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Profile, Room, Event, Schedule, Assignment, Announcement } from "@/lib/types";
 
@@ -10,7 +10,7 @@ export const agentToolsDeclaration = [
     functionDeclarations: [
       {
         name: "get_current_datetime",
-        description: "Returns current date (YYYY-MM-DD), current time (HH:MM:SS), and day of the week. ALWAYS call this to resolve 'today', 'tomorrow', 'this week', etc.",
+        description: "Returns exact current date (YYYY-MM-DD), time (HH:MM), day of the week, tomorrow's date, and this week's date range.",
         parameters: {
           type: Type.OBJECT,
           properties: {},
@@ -18,11 +18,11 @@ export const agentToolsDeclaration = [
       },
       {
         name: "get_schedules",
-        description: "Fetches class schedules. Optional filters by day of the week (Sunday, Monday, Tuesday, Wednesday, Thursday) or course code/title.",
+        description: "Fetches class schedules. Call this when asked about timetable, classes on a day (e.g. Wednesday), course schedules, or student free time slots.",
         parameters: {
           type: Type.OBJECT,
           properties: {
-            day: { type: Type.STRING, description: "Day of the week (Sunday, Monday, Tuesday, Wednesday, Thursday)" },
+            day: { type: Type.STRING, description: "Day of the week (e.g. Sunday, Monday, Tuesday, Wednesday, Thursday)" },
             course: { type: Type.STRING, description: "Course code or title (e.g. CSE321)" },
           },
         },
@@ -37,7 +37,7 @@ export const agentToolsDeclaration = [
       },
       {
         name: "get_assignments",
-        description: "Fetches assignments. Optional filter by status (pending, submitted, graded, late) or deadline due on/before a date.",
+        description: "Fetches assignments. Call this for queries about assignments due, deadlines, submission status, or marks.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -48,7 +48,7 @@ export const agentToolsDeclaration = [
       },
       {
         name: "get_announcements",
-        description: "Fetches campus announcements. Optional filter by priority level (high, medium, low).",
+        description: "Fetches campus notices and announcements. Call this when asked about notices or announcements (e.g. high priority).",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -58,7 +58,7 @@ export const agentToolsDeclaration = [
       },
       {
         name: "get_events",
-        description: "Fetches campus events. Optional filter by status (upcoming, ongoing, completed, cancelled, full).",
+        description: "Fetches campus events (workshops, lectures, seminars). Call this when asked about events, drop-in activities, or free-time activities.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -68,33 +68,33 @@ export const agentToolsDeclaration = [
       },
       {
         name: "get_rooms",
-        description: "Fetches campus rooms. Optional filter by minimum capacity, equipment tag (e.g. projector), or room type.",
+        description: "Fetches campus room details (capacity, equipment like projector, type like lab/classroom).",
         parameters: {
           type: Type.OBJECT,
           properties: {
             min_capacity: { type: Type.NUMBER, description: "Minimum capacity required" },
-            equipment: { type: Type.STRING, description: "Required equipment (e.g. projector, computers, white board)" },
+            equipment: { type: Type.STRING, description: "Required equipment tag (e.g. projector, computers, white board)" },
             type: { type: Type.STRING, description: "Room type: classroom, lab, seminar" },
           },
         },
       },
       {
         name: "check_room_availability",
-        description: "Checks if a specific room number (e.g. '7A02') is available at a given date and time range.",
+        description: "Checks if a specific room (e.g. '7A02') is available at a given date and time range.",
         parameters: {
           type: Type.OBJECT,
           required: ["room_number", "date", "start_time", "end_time"],
           properties: {
             room_number: { type: Type.STRING, description: "Room number like '7A02'" },
             date: { type: Type.STRING, description: "Date YYYY-MM-DD" },
-            start_time: { type: Type.STRING, description: "Start time HH:MM (e.g. 15:00 or 3 PM)" },
-            end_time: { type: Type.STRING, description: "End time HH:MM (e.g. 17:00 or 5 PM)" },
+            start_time: { type: Type.STRING, description: "Start time HH:MM (e.g. 15:00)" },
+            end_time: { type: Type.STRING, description: "End time HH:MM (e.g. 17:00)" },
           },
         },
       },
       {
         name: "find_available_rooms",
-        description: "Finds available rooms for a given date, start time, end time, and optional capacity or equipment.",
+        description: "Finds available rooms matching criteria (capacity, equipment, type) for a specific date and time range.",
         parameters: {
           type: Type.OBJECT,
           required: ["date", "start_time", "end_time"],
@@ -110,7 +110,7 @@ export const agentToolsDeclaration = [
       },
       {
         name: "book_room",
-        description: "Books a room for the current user. Allowed for any authenticated user. Requires room number/id, date, start_time, end_time, and purpose.",
+        description: "Books a room. ONLY call when explicit room number, date, start_time, end_time, and purpose are specified. DO NOT call if request is vague.",
         parameters: {
           type: Type.OBJECT,
           required: ["room_number", "date", "start_time", "end_time", "purpose"],
@@ -137,7 +137,7 @@ export const agentToolsDeclaration = [
       },
       {
         name: "register_for_event",
-        description: "Registers the current user for a campus event by event name or event ID.",
+        description: "Registers current user for a campus event by event name or ID.",
         parameters: {
           type: Type.OBJECT,
           required: ["event_name_or_id"],
@@ -148,7 +148,7 @@ export const agentToolsDeclaration = [
       },
       {
         name: "cancel_event_registration",
-        description: "Cancels the current user's registration for a campus event by event name or event ID.",
+        description: "Cancels current user's registration for a campus event by event name or ID.",
         parameters: {
           type: Type.OBJECT,
           required: ["event_id_or_name"],
@@ -164,25 +164,34 @@ export const agentToolsDeclaration = [
 export function normalizeTime(t: string): string {
   if (!t) return "";
   const clean = t.trim().toUpperCase();
-  const match12 = clean.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
-  if (match12) {
-    let hours = parseInt(match12[1], 10);
-    const minutes = match12[2] || "00";
-    const period = match12[3];
+  const match = clean.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2] || "00";
+    const period = match[3];
+
     if (period === "PM" && hours < 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
+    else if (period === "AM" && hours === 12) hours = 0;
+    else if (!period) {
+      if (hours >= 1 && hours <= 7) hours += 12;
+    }
     return `${String(hours).padStart(2, "0")}:${minutes}`;
   }
-  const match24 = clean.match(/^(\d{1,2}):(\d{2})$/);
-  if (match24) {
-    return `${String(parseInt(match24[1], 10)).padStart(2, "0")}:${match24[2]}`;
-  }
-  const matchHourOnly = clean.match(/^(\d{1,2})$/);
-  if (matchHourOnly) {
-    const h = parseInt(matchHourOnly[1], 10);
-    return `${String(h).padStart(2, "0")}:00`;
-  }
   return clean;
+}
+
+function findRoom(rooms: Room[], query: string): Room | undefined {
+  const clean = query.replace(/^room\s*/i, "").trim().toLowerCase();
+  return rooms.find(
+    (r) => r.room_number.toLowerCase() === clean || r.id.toLowerCase() === clean || r.id.toLowerCase() === `room-${clean}`
+  );
+}
+
+function findEvent(events: Event[], query: string): Event | undefined {
+  const clean = query.trim().toLowerCase();
+  return events.find(
+    (e) => e.id.toLowerCase() === clean || e.name.toLowerCase().includes(clean) || clean.includes(e.name.toLowerCase())
+  );
 }
 
 export async function executeAgentTool(name: string, args: Record<string, any>, _profile: Profile): Promise<unknown> {
@@ -192,10 +201,13 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
     case "get_current_datetime": {
       const now = getNow();
       const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const weekRange = getWeekRange();
       return {
         current_date: getToday(),
         current_time: now.toTimeString().slice(0, 8),
         day_of_week: days[now.getDay()],
+        tomorrow_date: getTomorrow(),
+        this_week_range: `${weekRange.start} to ${weekRange.end}`,
       };
     }
 
@@ -211,6 +223,9 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
         const c = String(args.course).toLowerCase();
         list = list.filter((s) => s.course.toLowerCase().includes(c) || s.title.toLowerCase().includes(c));
       }
+      if (list.length === 0) {
+        return { count: 0, message: "No class schedules found matching your query." };
+      }
       return list;
     }
 
@@ -225,7 +240,6 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
 
       const activeDays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
       
-      // Filter today's classes first
       const todayClasses = schedules
         .filter((s) => s.day.toLowerCase() === currentDay.toLowerCase() && s.start_time >= currentTime)
         .sort((a, b) => a.start_time.localeCompare(b.start_time));
@@ -234,7 +248,6 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
         return { next_class: todayClasses[0], is_today: true };
       }
 
-      // Look for next upcoming day
       const currentDayIdx = activeDays.indexOf(currentDay);
       for (let i = 1; i <= 7; i++) {
         const nextDay = activeDays[(currentDayIdx + i) % activeDays.length];
@@ -258,6 +271,9 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
       if (args.due_before) {
         list = list.filter((a) => a.deadline.slice(0, 10) <= String(args.due_before));
       }
+      if (list.length === 0) {
+        return { count: 0, message: "No assignments found matching the criteria." };
+      }
       return list;
     }
 
@@ -268,6 +284,9 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
       if (args.priority) {
         list = list.filter((a) => a.priority.toLowerCase() === String(args.priority).toLowerCase());
       }
+      if (list.length === 0) {
+        return { count: 0, message: "No announcements found matching your filter." };
+      }
       return list;
     }
 
@@ -277,6 +296,9 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
       let list = (data || []) as Event[];
       if (args.status) {
         list = list.filter((e) => e.status.toLowerCase() === String(args.status).toLowerCase());
+      }
+      if (list.length === 0) {
+        return { count: 0, message: "No events found matching your query." };
       }
       return list;
     }
@@ -297,21 +319,24 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
         const eq = String(args.equipment).toLowerCase();
         list = list.filter((r) => r.equipment.some((item) => item.toLowerCase().includes(eq)));
       }
+      if (list.length === 0) {
+        return { count: 0, message: "No rooms found matching the specified filters (type, equipment, capacity)." };
+      }
       return list;
     }
 
     case "check_room_availability": {
-      const roomNum = String(args.room_number).trim();
-      const date = String(args.date).trim();
-      const startTime = normalizeTime(String(args.start_time));
-      const endTime = normalizeTime(String(args.end_time));
+      const roomNum = String(args.room_number || "").trim();
+      const date = String(args.date || "").trim();
+      const startTime = normalizeTime(String(args.start_time || ""));
+      const endTime = normalizeTime(String(args.end_time || ""));
 
       const { data, error } = await admin.from("rooms").select("*");
       if (error) return { error: error.message };
       const rooms = (data || []) as Room[];
-      const room = rooms.find((r) => r.room_number.toLowerCase() === roomNum.toLowerCase() || r.id === roomNum);
+      const room = findRoom(rooms, roomNum);
 
-      if (!room) return { available: false, reason: `Room ${roomNum} not found.` };
+      if (!room) return { available: false, reason: `Room '${roomNum}' not found.` };
       if (room.status !== "available") return { available: false, reason: `Room ${room.room_number} is out of service.` };
 
       const conflict = room.bookings.find(
@@ -324,9 +349,9 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
     }
 
     case "find_available_rooms": {
-      const date = String(args.date).trim();
-      const startTime = normalizeTime(String(args.start_time));
-      const endTime = normalizeTime(String(args.end_time));
+      const date = String(args.date || "").trim();
+      const startTime = normalizeTime(String(args.start_time || ""));
+      const endTime = normalizeTime(String(args.end_time || ""));
 
       const { data, error } = await admin.from("rooms").select("*");
       if (error) return { error: error.message };
@@ -353,6 +378,10 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
         return !conflict;
       });
 
+      if (availableRooms.length === 0) {
+        return { count: 0, message: `No available rooms found for ${date} between ${startTime} and ${endTime}.` };
+      }
+
       return availableRooms.map((r) => ({
         id: r.id,
         room_number: r.room_number,
@@ -364,15 +393,15 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
     }
 
     case "book_room": {
-      const roomNum = String(args.room_number).trim();
-      const date = String(args.date).trim();
-      const startTime = normalizeTime(String(args.start_time));
-      const endTime = normalizeTime(String(args.end_time));
+      const roomNum = String(args.room_number || "").trim();
+      const date = String(args.date || "").trim();
+      const startTime = normalizeTime(String(args.start_time || ""));
+      const endTime = normalizeTime(String(args.end_time || ""));
       const purpose = String(args.purpose || "Study / Meeting").trim();
 
       const { data: rooms } = await admin.from("rooms").select("*");
       const roomList = (rooms || []) as Room[];
-      const room = roomList.find((r) => r.room_number.toLowerCase() === roomNum.toLowerCase() || r.id === roomNum);
+      const room = findRoom(roomList, roomNum);
 
       if (!room) return { ok: false, error: `Room '${roomNum}' not found.` };
 
@@ -382,12 +411,12 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
     }
 
     case "cancel_room_booking": {
-      const roomNum = String(args.room_number).trim();
-      const bookingId = String(args.booking_id).trim();
+      const roomNum = String(args.room_number || "").trim();
+      const bookingId = String(args.booking_id || "").trim();
 
       const { data: rooms } = await admin.from("rooms").select("*");
       const roomList = (rooms || []) as Room[];
-      const room = roomList.find((r) => r.room_number.toLowerCase() === roomNum.toLowerCase() || r.id === roomNum);
+      const room = findRoom(roomList, roomNum);
 
       if (!room) return { ok: false, error: `Room '${roomNum}' not found.` };
 
@@ -397,13 +426,10 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
     }
 
     case "register_for_event": {
-      const target = String(args.event_name_or_id).trim();
+      const target = String(args.event_name_or_id || "").trim();
       const { data: events } = await admin.from("events").select("*");
       const eventList = (events || []) as Event[];
-
-      const event = eventList.find(
-        (e) => e.id === target || e.name.toLowerCase().includes(target.toLowerCase())
-      );
+      const event = findEvent(eventList, target);
 
       if (!event) return { ok: false, error: `Event '${target}' not found.` };
 
@@ -413,13 +439,10 @@ export async function executeAgentTool(name: string, args: Record<string, any>, 
     }
 
     case "cancel_event_registration": {
-      const target = String(args.event_id_or_name).trim();
+      const target = String(args.event_id_or_name || "").trim();
       const { data: events } = await admin.from("events").select("*");
       const eventList = (events || []) as Event[];
-
-      const event = eventList.find(
-        (e) => e.id === target || e.name.toLowerCase().includes(target.toLowerCase())
-      );
+      const event = findEvent(eventList, target);
 
       if (!event) return { ok: false, error: `Event '${target}' not found.` };
 
