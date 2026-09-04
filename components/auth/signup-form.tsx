@@ -19,7 +19,7 @@ export function SignupForm() {
         <div className="space-y-1.5"><Label htmlFor="full_name">Full name</Label><Input id="full_name" name="full_name" placeholder="Your full name" autoComplete="name" required /></div>
         <div className="space-y-1.5"><Label htmlFor="email">AUST email</Label><Input id="email" name="email" type="email" placeholder="you@aust.edu" autoComplete="email" required /></div>
         <div className="space-y-1.5"><Label htmlFor="password">Password</Label><Input id="password" name="password" type="password" placeholder="At least 6 characters" autoComplete="new-password" minLength={6} required /></div>
-        <div className="space-y-1.5"><Label htmlFor="requested_role">Role request</Label><Select id="requested_role" name="requested_role" defaultValue="student"><option value="student">Student</option><option value="cr">Course Representative (CR)</option><option value="sr">Senior Representative (SR)</option></Select></div>
+        <div className="space-y-1.5"><Label htmlFor="requested_role">Role request</Label><Select id="requested_role" name="requested_role" defaultValue="student"><option value="student">Student</option><option value="cr">Class Representative (CR)</option><option value="sr">Society Representative (SR)</option></Select></div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1.5"><Label htmlFor="section">Section</Label><Input id="section" name="section" placeholder="B" /></div>
           <div className="space-y-1.5"><Label htmlFor="semester">Semester</Label><Input id="semester" name="semester" placeholder="8" /></div>
