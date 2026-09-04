@@ -1,0 +1,3 @@
+export function EmptyState({ title, description, icon }: { title: string; description: string; icon?: React.ReactNode }) {
+  return <div className="rounded-card border border-dashed bg-card px-6 py-12 text-center"><div className="mx-auto mb-3 grid size-10 place-items-center rounded-full bg-muted text-muted-foreground">{icon}</div><h3 className="font-heading font-semibold">{title}</h3><p className="mt-1 text-sm text-muted-foreground">{description}</p></div>;
+}
