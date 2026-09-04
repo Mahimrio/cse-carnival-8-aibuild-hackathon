@@ -1,6 +1,6 @@
 export type UserRole = "super_admin" | "cr" | "sr" | "student";
 export type ProfileStatus = "pending" | "active" | "rejected";
-export type EntityType = "schedule" | "room" | "event" | "announcement" | "assignment";
+export type EntityType = "schedule" | "room" | "event" | "announcement" | "assignment" | "user";
 
 export interface Schedule {
   id: string;
