@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx scripts/seed.ts",
-    "seed:check": "tsx scripts/seed.ts --validate-only"
+    "seed:check": "tsx scripts/seed.ts --validate-only",
+    "test:rbac": "tsx scripts/check-rbac.ts"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
