@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, LayoutDashboard, LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { Bot, Building2, Camera, History, LayoutDashboard, LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { useState } from "react";
 import { signOutAction } from "@/lib/actions/auth";
-import { roleColor, roleName } from "@/lib/auth/roles";
+import { isManager, roleColor, roleName } from "@/lib/auth/roles";
 import type { Profile } from "@/lib/types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
@@ -17,7 +17,10 @@ export function AppHeader({ profile }: { profile: Profile }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, visible: true },
+    { href: "/smart-entry", label: "Smart Entry", icon: Camera, visible: isManager(profile.role) },
+    { href: "/history", label: "History", icon: History, visible: true },
     { href: "/admin", label: "Admin", icon: ShieldCheck, visible: profile.role === "super_admin" },
+    { href: "/agent", label: "Ask CampusOS", icon: Bot, visible: true },
   ].filter((item) => item.visible);
 
   return (
@@ -28,7 +31,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
           {navItems.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={cn("flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground", pathname === href && "bg-teal-50 text-primary dark:bg-teal-900/20")}><Icon aria-hidden="true" size={16} />{label}</Link>)}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Demo mode</Badge>}
+          {process.env.NEXT_PUBLIC_DEMO_MODE === "true" && <Badge className="hidden bg-amber-100 text-amber-800 sm:inline-flex dark:bg-amber-900/40 dark:text-amber-300">Demo mode</Badge>}
           <ThemeToggle />
           <div className="flex items-center gap-2 border-l pl-2">
             <div className="hidden flex-col items-end sm:flex"><span className="text-xs font-medium">{profile.full_name}</span><Badge className={`mt-1 ${roleColor(profile.role)}`}>{roleName(profile.role)}</Badge></div>

@@ -30,6 +30,7 @@ export async function middleware(request: NextRequest) {
   }
   if (authRoute || path === "/pending") return redirect("/");
   if (path.startsWith("/admin") && profile.role !== "super_admin") return redirect("/");
+  if (path.startsWith("/smart-entry") && !["super_admin", "cr", "sr"].includes(profile.role)) return redirect("/");
   return response;
 }
 

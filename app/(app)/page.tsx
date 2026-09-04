@@ -1,6 +1,12 @@
-import { Bot, DatabaseZap } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { redirect } from "next/navigation";
+import { DashboardFrame } from "@/components/dashboard/dashboard-frame";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
+import { getToday } from "@/lib/now";
 
-export default function HomePage() {
-  return <div><div className="mb-6"><p className="text-sm font-medium text-primary">Campus overview</p><h1 className="font-heading text-2xl font-bold">Dashboard</h1><p className="mt-1 text-sm text-muted-foreground">Your live campus workspace is ready for its data views.</p></div><div className="grid gap-4 sm:grid-cols-2"><Card><CardContent className="flex items-start gap-4 pt-5"><DatabaseZap className="text-primary" aria-hidden="true" /><div><h2 className="font-heading font-semibold">Supabase connected</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Schedules, rooms, events, announcements, and assignments are seeded.</p></div></CardContent></Card><Card><CardContent className="flex items-start gap-4 pt-5"><Bot className="text-primary" aria-hidden="true" /><div><h2 className="font-heading font-semibold">CampusOS agent</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Live tools and the chat experience arrive in P8.</p></div></CardContent></Card></div></div>;
+export default async function HomePage() {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
+  const today = getToday();
+  const dayName = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(new Date(`${today}T12:00:00Z`));
+  return <DashboardFrame profile={profile} today={today} dayName={dayName} />;
 }
