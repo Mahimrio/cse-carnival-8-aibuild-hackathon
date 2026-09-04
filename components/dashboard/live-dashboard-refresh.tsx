@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-const TABLES = ["schedules", "rooms", "events", "announcements", "assignments"];
+const TABLES = ["schedules", "rooms", "events", "announcements", "assignments", "audit_log"];
 
 export function LiveDashboardRefresh() {
   const router = useRouter();

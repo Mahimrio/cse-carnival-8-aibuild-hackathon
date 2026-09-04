@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, BookOpen, CalendarCheck, CalendarDays, Clock, Layers } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Bell, BookOpen, CalendarCheck, CalendarDays, Clock, History, Layers } from "lucide-react";
 import { useState } from "react";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { LiveDashboardRefresh } from "@/components/dashboard/live-dashboard-refresh";
@@ -10,6 +11,9 @@ import { EventsView } from "@/components/systems/events-view";
 import { RoomsView } from "@/components/systems/rooms-view";
 import { ScheduleView } from "@/components/systems/schedule-view";
 import { Tabs } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { auditActionColor, formatAuditAction } from "@/lib/audit-format";
 import type { DashboardData } from "@/lib/data/dashboard";
 import type { Profile } from "@/lib/types";
 
@@ -71,6 +75,12 @@ export function DashboardFrame({ profile, today, dayName, currentTime, data }: {
         {activeSystem === "announcements" && <AnnouncementsView announcements={data.announcements} profile={profile} today={today} />}
         {activeSystem === "assignments" && <AssignmentsView assignments={data.assignments} today={today} profile={profile} />}
       </section>
+      <Card className="mt-8">
+        <CardContent className="pt-5">
+          <div className="mb-4 flex items-center justify-between gap-4"><div><h2 className="flex items-center gap-2 font-heading font-semibold"><History aria-hidden="true" size={17} className="text-primary" />Recent Activity</h2><p className="mt-1 text-xs text-muted-foreground">Latest changes across CampusOS</p></div><Link href="/history" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">View all <ArrowRight aria-hidden="true" size={14} /></Link></div>
+          {data.recentActivity.length === 0 ? <p className="py-4 text-sm text-muted-foreground">No activity has been recorded yet.</p> : <div className="divide-y">{data.recentActivity.map((entry) => <div key={entry.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"><Badge className={auditActionColor(entry.action)}>{formatAuditAction(entry.action)}</Badge><div className="min-w-0 flex-1"><p className="truncate text-sm">{entry.summary}</p><p className="mt-0.5 text-xs text-muted-foreground">{entry.actor_label}</p></div><time className="shrink-0 text-xs text-muted-foreground" dateTime={entry.created_at}>{entry.created_at.slice(0, 10)}</time></div>)}</div>}
+        </CardContent>
+      </Card>
     </div>
   );
 }
