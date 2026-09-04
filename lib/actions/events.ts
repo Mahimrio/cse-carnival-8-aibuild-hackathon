@@ -6,7 +6,7 @@ import { z } from "zod";
 import { actionError, requireManager, requireProfile, type ActionResult } from "@/lib/actions/common";
 import { writeAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Event } from "@/lib/types";
+import type { Event, Profile } from "@/lib/types";
 import { eventSchema } from "@/lib/validations";
 
 type EventDraft = Omit<Event, "id" | "registered" | "registrations">;
@@ -53,9 +53,9 @@ export async function deleteEvent(id: string): Promise<ActionResult> {
   } catch (error) { return actionError(error); }
 }
 
-export async function registerForEvent(eventId: string): Promise<ActionResult> {
+export async function registerForEvent(eventId: string, overrideProfile?: Profile): Promise<ActionResult> {
   try {
-    const profile = await requireProfile();
+    const profile = overrideProfile || (await requireProfile());
     const admin = createAdminClient();
     const { data, error: readError } = await admin.from("events").select("*").eq("id", eventId).single();
     if (readError) throw new Error(readError.message);
@@ -73,9 +73,9 @@ export async function registerForEvent(eventId: string): Promise<ActionResult> {
   } catch (error) { return actionError(error); }
 }
 
-export async function cancelEventRegistration(eventId: string): Promise<ActionResult> {
+export async function cancelEventRegistration(eventId: string, overrideProfile?: Profile): Promise<ActionResult> {
   try {
-    const profile = await requireProfile();
+    const profile = overrideProfile || (await requireProfile());
     const admin = createAdminClient();
     const { data, error: readError } = await admin.from("events").select("*").eq("id", eventId).single();
     if (readError) throw new Error(readError.message);

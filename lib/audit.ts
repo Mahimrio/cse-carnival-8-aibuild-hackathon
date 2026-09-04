@@ -1,4 +1,3 @@
-import "server-only";
 
 import { proposerLabel } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";

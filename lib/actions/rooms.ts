@@ -6,7 +6,7 @@ import { z } from "zod";
 import { actionError, requireManager, requireProfile, type ActionResult } from "@/lib/actions/common";
 import { writeAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Booking, Room } from "@/lib/types";
+import type { Booking, Profile, Room } from "@/lib/types";
 import { bookingSchema, roomSchema } from "@/lib/validations";
 
 type RoomDraft = Omit<Room, "id" | "bookings">;
@@ -52,9 +52,9 @@ export async function deleteRoom(id: string): Promise<ActionResult> {
   } catch (error) { return actionError(error); }
 }
 
-export async function bookRoom(roomId: string, input: Omit<Booking, "booking_id" | "booked_by">): Promise<ActionResult> {
+export async function bookRoom(roomId: string, input: Omit<Booking, "booking_id" | "booked_by">, overrideProfile?: Profile): Promise<ActionResult> {
   try {
-    const profile = await requireProfile();
+    const profile = overrideProfile || (await requireProfile());
     const draft = bookingDraftSchema.parse(input);
     if (draft.start_time >= draft.end_time) throw new Error("End time must be after start time.");
     const admin = createAdminClient();
@@ -72,9 +72,9 @@ export async function bookRoom(roomId: string, input: Omit<Booking, "booking_id"
   } catch (error) { return actionError(error); }
 }
 
-export async function cancelRoomBooking(roomId: string, bookingId: string): Promise<ActionResult> {
+export async function cancelRoomBooking(roomId: string, bookingId: string, overrideProfile?: Profile): Promise<ActionResult> {
   try {
-    const profile = await requireProfile();
+    const profile = overrideProfile || (await requireProfile());
     const admin = createAdminClient();
     const { data, error: readError } = await admin.from("rooms").select("*").eq("id", roomId).single();
     if (readError) throw new Error(readError.message);
