@@ -72,3 +72,7 @@ next-env.d.ts
 # Figma Make export used only as a design reference
 design-ref/
 node_modules
+
+# AI Agents and Local Skills
+.agents/
+
